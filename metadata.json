@@ -1,0 +1,6 @@
+{
+  "name": "ATS Resume Optimizer & Job Tracker",
+  "description": "Platform optimasi resume ATS berbasis kecerdasan buatan Gemini dengan penyesuaian kualifikasi jujur, dilengkapi tracker lamaran kerja komprehensif, kalender visual aktivitas, dan sistem pelaporan mingguan.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
