@@ -21,6 +21,43 @@ const LOADING_STEPS = [
   "Memformulasikan penjelasan kesenjangan (gap analysis) jujur..."
 ];
 
+const TIMEZONE_MAPPINGS = [
+  { keywords: ['sydney', 'melbourne', 'canberra', 'aedt', 'aest', 'victoria', 'nsw'], abbr: 'AEST / AEDT', offset: 'GMT+10 / GMT+11' },
+  { keywords: ['brisbane', 'queensland'], abbr: 'AEST', offset: 'GMT+10' },
+  { keywords: ['perth', 'western australia', 'awst'], abbr: 'AWST', offset: 'GMT+8' },
+  { keywords: ['adelaide', 'acst', 'acdt', 'south australia'], abbr: 'ACST / ACDT', offset: 'GMT+9.5 / GMT+10.5' },
+  { keywords: ['tokyo', 'japan', 'jst', 'tokyo time'], abbr: 'JST', offset: 'GMT+9' },
+  { keywords: ['seoul', 'korea', 'kst', 'korea time'], abbr: 'KST', offset: 'GMT+9' },
+  { keywords: ['singapore', 'sg', 'sgt', 'singapore time'], abbr: 'SGT', offset: 'GMT+8' },
+  { keywords: ['kuala lumpur', 'malaysia', 'myt'], abbr: 'MYT', offset: 'GMT+8' },
+  { keywords: ['manila', 'philippines', 'pht'], abbr: 'PHT', offset: 'GMT+8' },
+  { keywords: ['jakarta', 'wib', 'west indonesia', 'banten', 'java', 'sumatera', 'sumatra'], abbr: 'WIB', offset: 'GMT+7' },
+  { keywords: ['bali', 'makassar', 'wita', 'central indonesia', 'lombok'], abbr: 'WITA', offset: 'GMT+8' },
+  { keywords: ['jayapura', 'wit', 'east indonesia', 'papua'], abbr: 'WIT', offset: 'GMT+9' },
+  { keywords: ['bangkok', 'ict', 'thailand', 'vietnam', 'hanoi'], abbr: 'ICT', offset: 'GMT+7' },
+  { keywords: ['india', 'mumbai', 'delhi', 'kolkata', 'ist', 'bengaluru', 'bangalore'], abbr: 'IST', offset: 'GMT+5.5' },
+  { keywords: ['london', 'united kingdom', 'uk', 'gmt', 'bst', 'england'], abbr: 'GMT / BST', offset: 'GMT+0 / GMT+1' },
+  { keywords: ['paris', 'berlin', 'amsterdam', 'rome', 'brussels', 'madrid', 'cet', 'cest', 'europe', 'vienna'], abbr: 'CET / CEST', offset: 'GMT+1 / GMT+2' },
+  { keywords: ['dubai', 'uae', 'gst', 'abu dhabi'], abbr: 'GST', offset: 'GMT+4' },
+  { keywords: ['new york', 'ny', 'est', 'edt', 'eastern', 'boston', 'washington'], abbr: 'EST / EDT', offset: 'GMT-5 / GMT-4' },
+  { keywords: ['chicago', 'cst', 'cdt', 'central', 'houston', 'dallas'], abbr: 'CST / CDT', offset: 'GMT-6 / GMT-5' },
+  { keywords: ['denver', 'mst', 'mdt', 'mountain', 'phoenix', 'salt lake'], abbr: 'MST / MDT', offset: 'GMT-7 / GMT-6' },
+  { keywords: ['san francisco', 'los angeles', 'seattle', 'pst', 'pdt', 'pacific', 'california'], abbr: 'PST / PDT', offset: 'GMT-8 / GMT-7' },
+  { keywords: ['utc'], abbr: 'UTC', offset: 'GMT+0' }
+];
+
+function detectTimezoneDetail(input: string) {
+  if (!input || input.trim().length < 2) return null;
+  const normalized = input.toLowerCase().trim();
+  
+  for (const tz of TIMEZONE_MAPPINGS) {
+    if (tz.keywords.some(keyword => normalized.includes(keyword) || keyword.includes(normalized))) {
+      return tz;
+    }
+  }
+  return null;
+}
+
 export default function ResumeOptimizer({ activeProject, onSaveApplication }: ResumeOptimizerProps) {
   // Input states
   const [company, setCompany] = useState('');
@@ -46,6 +83,67 @@ export default function ResumeOptimizer({ activeProject, onSaveApplication }: Re
   const [result, setResult] = useState<OptimizationResponse | null>(null);
   const [copied, setCopied] = useState(false);
   const [isSavedToTracker, setIsSavedToTracker] = useState(false);
+
+  const renderFormattedList = (text: string, type: 'rose' | 'teal') => {
+    if (!text) return null;
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    
+    return (
+      <div className="space-y-3 mt-3 text-left w-full">
+        {lines.map((line, idx) => {
+          // Check for numbered point like: "1. **Title**: Description" or "1. **Title** Description"
+          const numberedRegex = /^(\d+)\.\s*\*\*(.*?)\*\*[:\s]*(.*)$/;
+          const match = line.match(numberedRegex);
+          
+          if (match) {
+            const [_, num, title, description] = match;
+            return (
+              <div key={idx} className="flex gap-3 p-3.5 rounded-xl border border-stone-150/80 bg-stone-50/50 hover:bg-stone-50 transition-all w-full">
+                <span className={`flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold ${
+                  type === 'rose' 
+                    ? 'bg-rose-50 text-rose-700 border border-rose-100' 
+                    : 'bg-teal-50 text-teal-700 border border-teal-100'
+                }`}>
+                  {num}
+                </span>
+                <div className="space-y-0.5 flex-1 min-w-0">
+                  <span className="font-extrabold text-stone-900 text-xs sm:text-[13px] block">
+                    {title}
+                  </span>
+                  <p className="text-stone-650 text-xs leading-relaxed">
+                    {description}
+                  </p>
+                </div>
+              </div>
+            );
+          }
+          
+          // Bullet list option: "- **Title**: Description"
+          const bulletRegex = /^[-*]\s*\*\*(.*?)\*\*[:\s]*(.*)$/;
+          const bulletMatch = line.match(bulletRegex);
+          if (bulletMatch) {
+            const [_, title, description] = bulletMatch;
+            return (
+              <div key={idx} className="flex gap-2.5 items-start pl-1">
+                <span className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${type === 'rose' ? 'bg-rose-500' : 'bg-teal-500'}`} />
+                <div className="text-xs">
+                  <strong className="font-extrabold text-stone-900">{title}</strong>: {description}
+                </div>
+              </div>
+            );
+          }
+
+          // Plain formatting fallback with bold word conversion
+          const parts = line.split('**');
+          return (
+            <p key={idx} className="text-stone-650 text-xs leading-relaxed pl-1 text-left">
+              {parts.map((part, index) => index % 2 === 1 ? <strong key={index} className="font-extrabold text-stone-900">{part}</strong> : part)}
+            </p>
+          );
+        })}
+      </div>
+    );
+  };
 
   const startLoadingAnimation = () => {
     setLoadingStepIdx(0);
@@ -149,37 +247,69 @@ export default function ResumeOptimizer({ activeProject, onSaveApplication }: Re
     const lines = content.split('\n');
     const firstHeaderIdx = lines.findIndex(l => l.startsWith('## '));
     
+    const headerItems = lines
+      .slice(0, firstHeaderIdx !== -1 ? firstHeaderIdx : 5)
+      .map((line, originalIdx) => ({ line, originalIdx }))
+      .filter(item => item.line.trim() !== '');
+
+    const nameItemIdx = headerItems[0]?.originalIdx ?? -1;
+    const roleItemIdx = headerItems[1]?.originalIdx ?? -1;
+    
+    let currentSection = '';
+    let h3Count = 0;
+    
     const wordContent = lines.map((line, idx) => {
       if (line.startsWith('# ')) {
-        return `<h1 style="text-align: center; font-size: 16pt; font-weight: bold; margin-bottom: 2px; text-transform: uppercase;">${line.substring(2)}</h1>`;
+        return `<h1 style="text-align: center; font-size: 16pt; font-weight: bold; margin-bottom: 2px; text-transform: uppercase; color: #111111; font-family: Arial, sans-serif;">${line.substring(2)}</h1>`;
       } else if (firstHeaderIdx !== -1 && idx < firstHeaderIdx) {
         if (line.trim() === '') return '';
-        const isSecondLine = idx === 1 || (idx > 0 && lines[idx - 1].startsWith('# '));
-        if (isSecondLine) {
-          return `<div style="text-align: center; font-size: 11pt; font-weight: bold; color: #333333; margin-bottom: 2px;">${line}</div>`;
+        if (idx === roleItemIdx) {
+          return `<div style="text-align: center; font-size: 11pt; font-weight: bold; color: #111111; margin-bottom: 4px; text-transform: uppercase; font-family: Arial, sans-serif;"><b>${line}</b></div>`;
         }
-        return `<div style="text-align: center; font-size: 9.5pt; color: #555555; margin-bottom: 2px;">${line}</div>`;
+        return `<div style="text-align: center; font-size: 9.5pt; color: #555555; margin-bottom: 2px; font-family: Arial, sans-serif;">${line}</div>`;
       } else if (line.startsWith('## ')) {
-        return `<h2 style="font-size: 11pt; border-bottom: 2px solid #111111; margin-top: 14px; margin-bottom: 6px; padding-bottom: 2px; font-weight: bold; text-transform: uppercase; text-align: left;">${line.substring(3)}</h2>`;
+        currentSection = line.substring(3).trim().toUpperCase();
+        return `<h2 style="font-size: 11pt; border: none; border-bottom: solid #111111 1.5pt; padding: 0in 0in 2pt 0in; margin-top: 16pt; margin-bottom: 6pt; font-weight: bold; text-transform: uppercase; text-align: left; color: #111111; font-family: Arial, sans-serif;">${line.substring(3)}</h2>`;
       } else if (line.startsWith('### ')) {
+        h3Count++;
         const h3Content = line.substring(4);
+        const spacerHtml = h3Count > 1 ? `<p style="margin: 12pt 0 0 0; padding: 0; font-size: 1px; line-height: 1px;">&nbsp;</p>` : '';
+        
         if (h3Content.includes('|')) {
           const parts = h3Content.split('|');
           return `
+            ${spacerHtml}
             <table border="0" cellspacing="0" cellpadding="0" style="width:100%; margin-top:6px; margin-bottom:2px;">
               <tr>
                 <td align="left" style="font-weight:bold; font-size:10pt; color:#111111; font-family: Arial, sans-serif;">${parts[0].trim()}</td>
-                <td align="right" style="font-size:9pt; color:#666666; font-style:italic; font-family: Arial, sans-serif;">${parts[1].trim()}</td>
+                <td align="right" style="font-size:9pt; color:#555555; font-style:italic; font-family: Arial, sans-serif;">${parts[1].trim()}</td>
               </tr>
             </table>
           `;
         }
-        return `<h3 style="font-size: 10pt; margin-top: 8px; margin-bottom: 2px; font-weight: bold;">${h3Content}</h3>`;
+        return `
+          ${spacerHtml}
+          <h3 style="font-size: 10pt; margin-top: 8px; margin-bottom: 2px; font-weight: bold; color: #111111; font-family: Arial, sans-serif;">${h3Content}</h3>
+        `;
       } else if (line.startsWith('- ') || line.startsWith('* ')) {
         let itemText = line.substring(2);
         const parts = itemText.split('**');
         itemText = parts.map((part, index) => index % 2 === 1 ? `<b>${part}</b>` : part).join('');
-        return `<li style="margin-bottom: 2.5px; font-size: 9.5pt; text-align: justify;">${itemText}</li>`;
+        
+        const isCoreCompetency = currentSection.includes('COMPETENC') || currentSection.includes('KEAHLIAN') || currentSection.includes('KOMPETENSI') || currentSection.includes('SKILL');
+        
+        if (isCoreCompetency) {
+          return `<p style="margin-bottom: 5px; font-size: 9.5pt; text-align: left; line-height: 1.35; font-family: Arial, sans-serif; color: #333333;">${itemText}</p>`;
+        }
+        
+        return `
+          <table border="0" cellspacing="0" cellpadding="0" style="width:100%; margin-top:0px; margin-bottom:4px;">
+            <tr>
+              <td valign="top" style="width: 12pt; font-size: 9.5pt; font-weight: bold; color: #111111; font-family: Arial, sans-serif; padding-top: 1px;">•</td>
+              <td valign="top" align="left" style="font-size: 9.5pt; color: #333333; font-family: Arial, sans-serif; line-height: 1.35; text-align: left;">${itemText}</td>
+            </tr>
+          </table>
+        `;
       } else if (line.trim() === '') {
         return '';
       } else {
@@ -189,15 +319,15 @@ export default function ResumeOptimizer({ activeProject, onSaveApplication }: Re
           return `
             <table border="0" cellspacing="0" cellpadding="0" style="width:100%; margin-bottom:4px;">
               <tr>
-                <td align="left" style="font-size:9.5pt; color:#444444; font-family: Arial, sans-serif;">${parts[0].trim()}</td>
-                <td align="right" style="font-size:9.5pt; color:#444444; font-family: Arial, sans-serif;">${parts[1].trim()}</td>
+                <td align="left" style="font-size:9.5pt; color:#444444; font-family: Arial, sans-serif; font-weight: bold;">${parts[0].trim()}</td>
+                <td align="right" style="font-size:9.5pt; color:#444444; font-family: Arial, sans-serif; font-weight: bold;">${parts[1].trim()}</td>
               </tr>
             </table>
           `;
         }
         const parts = itemText.split('**');
         itemText = parts.map((part, index) => index % 2 === 1 ? `<b>${part}</b>` : part).join('');
-        return `<p style="margin: 0 0 4px 0; font-size: 9.5pt; text-align: justify;">${itemText}</p>`;
+        return `<p style="margin: 0 0 4px 0; font-size: 9.5pt; text-align: left; font-family: Arial, sans-serif; color: #333333; line-height: 1.35;">${itemText}</p>`;
       }
     }).filter(html => html !== '').join('\n');
     
@@ -207,9 +337,13 @@ export default function ResumeOptimizer({ activeProject, onSaveApplication }: Re
         <meta charset="utf-8">
         <title>Resume Tailored - ${company || "ATS"}</title>
         <style>
-          body { font-family: 'Arial', sans-serif; line-height: 1.35; font-size: 10pt; color: #333333; margin: 1in; }
+          @page {
+            size: A4;
+            margin: 0.75in;
+          }
+          body { font-family: 'Arial', sans-serif; line-height: 1.35; font-size: 10pt; color: #333333; margin: 0in; }
           h1, h2, h3, p, div, li { font-family: 'Arial', sans-serif; }
-          p { margin: 0 0 4px 0; font-size: 9.5pt; text-align: justify; }
+          p { margin: 0 0 4px 0; font-size: 9.5pt; text-align: left; }
           ul { margin: 0 0 6px 18px; }
           li { margin-bottom: 2px; font-size: 9.5pt; }
         </style>
@@ -236,51 +370,69 @@ export default function ResumeOptimizer({ activeProject, onSaveApplication }: Re
   const downloadAsPDF = () => {
     if (!result?.optimizedResume) return;
     
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
-    document.body.appendChild(iframe);
-    
-    const doc = iframe.contentWindow?.document || iframe.contentDocument;
-    if (!doc) return;
-    
     const content = result.optimizedResume;
     const lines = content.split('\n');
     const firstHeaderIdx = lines.findIndex(l => l.startsWith('## '));
     
-    const htmlLines = lines.map((line, idx) => {
+    const headerItems = lines
+      .slice(0, firstHeaderIdx !== -1 ? firstHeaderIdx : 5)
+      .map((line, originalIdx) => ({ line, originalIdx }))
+      .filter(item => item.line.trim() !== '');
+
+    const nameItemIdx = headerItems[0]?.originalIdx ?? -1;
+    const roleItemIdx = headerItems[1]?.originalIdx ?? -1;
+    
+    let currentSection = '';
+    let h3Count = 0;
+    
+    const formattedHtmlLines = lines.map((line, idx) => {
       if (line.startsWith('# ')) {
-        return `<h1 style="font-size: 20px; text-align: center; margin-top: 0; margin-bottom: 4px; font-weight: bold; color: #111; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; text-transform: uppercase;">${line.substring(2)}</h1>`;
+        return `<h1 style="font-size: 16pt; text-align: center; margin-top: 0; margin-bottom: 4px; font-weight: bold; font-family: Arial, sans-serif; text-transform: uppercase; color: #111111;">${line.substring(2)}</h1>`;
       } else if (firstHeaderIdx !== -1 && idx < firstHeaderIdx) {
         if (line.trim() === '') return '';
-        const isSecondLine = idx === 1 || (idx > 0 && lines[idx - 1].startsWith('# '));
-        if (isSecondLine) {
-          return `<div style="font-size: 11px; text-align: center; font-weight: bold; color: #111; margin-bottom: 4px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">${line}</div>`;
+        if (idx === roleItemIdx) {
+          return `<div style="text-align: center; font-size: 11pt; font-weight: bold; color: #111111; margin-bottom: 4px; font-family: Arial, sans-serif; text-transform: uppercase;"><b>${line}</b></div>`;
         }
-        return `<div style="font-size: 9.5px; text-align: center; color: #555; margin-bottom: 4px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">${line}</div>`;
+        return `<div style="text-align: center; font-size: 9.5pt; color: #555555; margin-bottom: 4px; font-family: Arial, sans-serif;">${line}</div>`;
       } else if (line.startsWith('## ')) {
-        return `<h2 style="font-size: 11px; border-bottom: 1.5px solid #111; margin-top: 16px; margin-bottom: 6px; font-weight: bold; padding-bottom: 2px; text-transform: uppercase; color: #111; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; text-align: left;">${line.substring(3)}</h2>`;
+        currentSection = line.substring(3).trim().toUpperCase();
+        return `<h2 style="font-size: 11pt; border-bottom: 1.5px solid #111111; margin-top: 14px; margin-bottom: 6px; padding-bottom: 2px; font-weight: bold; text-transform: uppercase; color: #111111; font-family: Arial, sans-serif; text-align: left;">${line.substring(3)}</h2>`;
       } else if (line.startsWith('### ')) {
+        h3Count++;
         const h3Content = line.substring(4);
+        const spacerHtml = h3Count > 1 ? `<div style="height: 12pt; font-size: 1px; line-height: 1px;">&nbsp;</div>` : '';
+        
         if (h3Content.includes('|')) {
           const parts = h3Content.split('|');
           return `
-            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 10px; margin-bottom: 2px;">
-              <span style="font-size: 10px; font-weight: bold; color: #111; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">${parts[0].trim()}</span>
-              <span style="font-size: 9px; font-weight: bold; color: #555; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-style: italic;">${parts[1].trim()}</span>
+            ${spacerHtml}
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 8px; margin-bottom: 2px; font-family: Arial, sans-serif;">
+              <span style="font-size: 10pt; font-weight: bold; color: #111111;">${parts[0].trim()}</span>
+              <span style="font-size: 9pt; font-weight: bold; color: #555555; font-style: italic;">${parts[1].trim()}</span>
             </div>
           `;
         }
-        return `<h3 style="font-size: 10px; margin-top: 10px; margin-bottom: 2px; font-weight: bold; color: #111; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">${h3Content}</h3>`;
+        return `
+          ${spacerHtml}
+          <h3 style="font-size: 10pt; margin-top: 8px; margin-bottom: 2px; font-weight: bold; color: #111111; font-family: Arial, sans-serif;">${h3Content}</h3>
+        `;
       } else if (line.startsWith('- ') || line.startsWith('* ')) {
         let itemText = line.substring(2);
         const parts = itemText.split('**');
-        itemText = parts.map((part, index) => index % 2 === 1 ? `<strong style="font-weight: bold; color: #111;">${part}</strong>` : part).join('');
-        return `<li style="margin-bottom: 3.5px; line-height: 1.35; font-size: 9.5px; color: #333; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; text-align: justify; list-style-type: disc; margin-left: 15px;">${itemText}</li>`;
+        itemText = parts.map((part, index) => index % 2 === 1 ? `<strong style="font-weight: bold; color: #111111;">${part}</strong>` : part).join('');
+        
+        const isCoreCompetency = currentSection.includes('COMPETENC') || currentSection.includes('KEAHLIAN') || currentSection.includes('KOMPETENSI') || currentSection.includes('SKILL');
+        
+        if (isCoreCompetency) {
+          return `<p style="margin-bottom: 4px; font-size: 9.5pt; text-align: left; line-height: 1.4; color: #333333; font-family: Arial, sans-serif;">${itemText}</p>`;
+        }
+        
+        return `
+          <div style="display: flex; margin-bottom: 4px; font-size: 9.5pt; text-align: left; line-height: 1.4; color: #333333; font-family: Arial, sans-serif;">
+            <span style="flex-shrink: 0; width: 12pt; font-weight: bold; color: #111111;">•</span>
+            <span style="flex-1: 1; margin-left: -2px;">${itemText}</span>
+          </div>
+        `;
       } else if (line.trim() === '') {
         return '';
       } else {
@@ -288,57 +440,61 @@ export default function ResumeOptimizer({ activeProject, onSaveApplication }: Re
         if (itemText.includes('|')) {
           const parts = itemText.split('|');
           return `
-            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px; margin-bottom: 4px;">
-              <span style="font-size: 9.5px; color: #444; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-weight: 500;">${parts[0].trim()}</span>
-              <span style="font-size: 9.5px; color: #444; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-weight: 500;">${parts[1].trim()}</span>
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px; margin-bottom: 4px; font-family: Arial, sans-serif;">
+              <span style="font-size: 9.5pt; color: #444444; font-weight: 500;">${parts[0].trim()}</span>
+              <span style="font-size: 9.5pt; color: #444444; font-weight: 500;">${parts[1].trim()}</span>
             </div>
           `;
         }
         const parts = itemText.split('**');
-        itemText = parts.map((part, index) => index % 2 === 1 ? `<strong style="font-weight: bold; color: #111;">${part}</strong>` : part).join('');
-        return `<p style="margin: 0 0 5px 0; font-size: 9.5px; line-height: 1.4; text-align: justify; color: #333; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">${itemText}</p>`;
+        itemText = parts.map((part, index) => index % 2 === 1 ? `<strong style="font-weight: bold; color: #111111;">${part}</strong>` : part).join('');
+        return `<p style="margin: 0 0 5px 0; font-size: 9.5pt; line-height: 1.4; text-align: left; color: #333333; font-family: Arial, sans-serif;">${itemText}</p>`;
       }
     }).filter(html => html !== '').join('\n');
-    
-    doc.write(`
+
+    const formattedHtml = `
       <html>
       <head>
-        <title>Resume_Tailored_${company || 'ATS'}_${title || 'Job'}</title>
+        <meta charset="utf-8">
+        <title>Resume_Tailored_${(company || 'ATS').replace(/\s+/g, '_')}_${(title || 'Job').replace(/\s+/g, '_')}</title>
         <style>
           @page {
             size: A4;
-            margin: 15mm;
+            margin: 20mm;
           }
           body {
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            color: #2D3748;
+            font-family: Arial, sans-serif;
+            color: #111111;
             margin: 0;
             padding: 0;
             background: #fff;
             -webkit-print-color-adjust: exact;
           }
-          ul {
-            margin: 0 0 8px 0;
-            padding-left: 15px;
-          }
         </style>
       </head>
       <body>
-        <div style="width: 100%; max-width: 800px; margin: 0 auto; padding: 5px;">
-          ${htmlLines}
+        <div style="width: 100%; max-width: 800px; margin: 0 auto; padding: 0;">
+          ${formattedHtmlLines}
         </div>
         <script>
           window.onload = function() {
+            window.focus();
             window.print();
-            setTimeout(function() {
-              window.parent.document.body.removeChild(window.frameElement);
-            }, 1000);
           };
         </script>
       </body>
       </html>
-    `);
-    doc.close();
+    `;
+    
+    const blob = new Blob([formattedHtml], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Resume_Tailored_${(company || 'ATS').replace(/\s+/g, '_')}_${(title || 'Job').replace(/\s+/g, '_')}_Cetak_PDF.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const getScoreColor = (score: number) => {
@@ -486,14 +642,62 @@ export default function ResumeOptimizer({ activeProject, onSaveApplication }: Re
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-stone-400 uppercase tracking-widest font-mono mb-1">Zona Waktu Kerja</label>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="block text-[10px] font-bold text-stone-400 uppercase tracking-widest font-mono">Zona Waktu Kerja</label>
+                      {(() => {
+                        const detected = detectTimezoneDetail(timezone);
+                        return detected ? (
+                          <span className="text-[9px] font-bold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200 animate-fade-in font-mono flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-teal-600" />
+                            {detected.abbr} ({detected.offset})
+                          </span>
+                        ) : null;
+                      })()}
+                    </div>
                     <input
                       type="text"
                       value={timezone}
                       onChange={e => setTimezone(e.target.value)}
-                      placeholder="Contoh: GMT+7 atau WIB"
+                      placeholder="Contoh: Sydney Time, GMT+7, WIB"
                       className="w-full px-4 py-2 bg-stone-50/50 border border-stone-200 rounded-xl focus:outline-none focus:border-teal-650 text-stone-850 text-sm placeholder-stone-400 font-medium"
                     />
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setTimezone('Sydney Time')}
+                        className="text-[9px] font-bold text-stone-500 bg-stone-100 hover:bg-stone-200 px-1.5 py-0.5 rounded transition-colors cursor-pointer"
+                      >
+                        🇦🇺 Sydney
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTimezone('Singapore Time')}
+                        className="text-[9px] font-bold text-stone-500 bg-stone-100 hover:bg-stone-200 px-1.5 py-0.5 rounded transition-colors cursor-pointer"
+                      >
+                        🇸🇬 SG
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTimezone('London Time')}
+                        className="text-[9px] font-bold text-stone-500 bg-stone-100 hover:bg-stone-200 px-1.5 py-0.5 rounded transition-colors cursor-pointer"
+                      >
+                        🇬🇧 London
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTimezone('New York Time')}
+                        className="text-[9px] font-bold text-stone-500 bg-stone-100 hover:bg-stone-200 px-1.5 py-0.5 rounded transition-colors cursor-pointer"
+                      >
+                        🇺🇸 NY
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTimezone('WIB')}
+                        className="text-[9px] font-bold text-stone-500 bg-stone-100 hover:bg-stone-200 px-1.5 py-0.5 rounded transition-colors cursor-pointer"
+                      >
+                        🇮🇩 Jakarta
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -751,24 +955,31 @@ export default function ResumeOptimizer({ activeProject, onSaveApplication }: Re
                 {/* Gap & Optimization details bento cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Gap Analysis */}
-                  <div className="bg-white p-5 rounded-2xl border border-stone-200/60 bento-shadow space-y-2 relative overflow-hidden">
+                  <div className="bg-white p-5 rounded-2xl border border-stone-200/60 bento-shadow space-y-2 relative overflow-hidden flex flex-col">
                     <h4 className="text-[10px] font-bold text-rose-700 uppercase tracking-widest font-mono flex items-center gap-1.5">
                       <ShieldAlert className="w-4 h-4 text-rose-650" />
                       Analisis Celah (Gap Analysis)
                     </h4>
-                    <p className="text-stone-600 text-xs leading-relaxed whitespace-pre-line font-medium font-mono">
-                      {result.gapAnalysis}
-                    </p>
+                    {renderFormattedList(result.gapAnalysis, 'rose')}
                   </div>
 
                   {/* Optimization Details */}
-                  <div className="bg-white p-5 rounded-2xl border border-stone-200/60 bento-shadow space-y-2 relative overflow-hidden">
+                  <div className="bg-white p-5 rounded-2xl border border-stone-200/60 bento-shadow space-y-2 relative overflow-hidden flex flex-col">
                     <h4 className="text-[10px] font-bold text-teal-750 uppercase tracking-widest font-mono flex items-center gap-1.5">
                       <BadgeInfo className="w-4 h-4 text-teal-600" />
                       Catatan Perubahan (Optimasi AI)
                     </h4>
-                    <p className="text-stone-600 text-xs leading-relaxed whitespace-pre-line font-medium">
-                      {result.optimizationDetails}
+                    {renderFormattedList(result.optimizationDetails, 'teal')}
+                  </div>
+                </div>
+
+                {/* Disclaimer Alert Box */}
+                <div className="bg-amber-50 border border-amber-200/80 p-4.5 rounded-2xl text-stone-750 flex items-start gap-3.5 text-xs leading-relaxed bento-shadow">
+                  <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-bold text-stone-900">💡 Arahan Penting Penggunaan Resume:</p>
+                    <p>
+                      Meskipun hasil optimasi AI ini sudah disesuaikan secara berstandar ATS modern, Anda sangat disarankan untuk <strong>memeriksa kembali hasil resume</strong> di bawah ini guna memastikan seluruh detail riwayat dan kontak tetap akurat. Anda dapat mengunduhnya dalam format <strong>Word (.doc)</strong> terlebih dahulu agar dapat diperbaiki atau diedit kembali dengan leluasa sebelum dikirim ke perusahaan tujuan.
                     </p>
                   </div>
                 </div>
@@ -854,8 +1065,8 @@ export default function ResumeOptimizer({ activeProject, onSaveApplication }: Re
                     </button>
                   </div>
 
-                  {resumeViewMode === 'a4' ? (
-                    /* Elegant A4 Simulation Card Wrapper */
+                  {/* Elegant A4 Simulation Card Wrapper - Always rendered in DOM so the PDF export function can find it */}
+                  <div className={resumeViewMode === 'a4' ? "block" : "hidden"}>
                     <div className="bg-stone-200/55 p-3 sm:p-6 rounded-xl border border-stone-200/80 max-h-[700px] overflow-y-auto flex justify-center shadow-inner">
                       <div 
                         id="a4-resume-page" 
@@ -873,6 +1084,17 @@ export default function ResumeOptimizer({ activeProject, onSaveApplication }: Re
                             const rLines = result.optimizedResume.split('\n');
                             const firstH2Idx = rLines.findIndex(l => l.startsWith('## '));
                             
+                            const headerItems = rLines
+                              .slice(0, firstH2Idx !== -1 ? firstH2Idx : 5)
+                              .map((line, originalIdx) => ({ line, originalIdx }))
+                              .filter(item => item.line.trim() !== '');
+
+                            const nameItemIdx = headerItems[0]?.originalIdx ?? -1;
+                            const roleItemIdx = headerItems[1]?.originalIdx ?? -1;
+                            
+                            let currentSection = '';
+                            let h3Count = 0;
+
                             const renderInlineFormatting = (text: string) => {
                               if (!text.includes('**')) return text;
                               const parts = text.split('**');
@@ -893,11 +1115,10 @@ export default function ResumeOptimizer({ activeProject, onSaveApplication }: Re
                                 );
                               } else if (firstH2Idx !== -1 && idx < firstH2Idx) {
                                 if (line.trim() === '') return null;
-                                const isSecondLine = idx === 1 || (idx > 0 && rLines[idx - 1].startsWith('# '));
-                                if (isSecondLine) {
+                                if (idx === roleItemIdx) {
                                   return (
-                                    <div key={idx} className="text-center font-bold text-stone-850 text-xs sm:text-[13px] tracking-wide mb-1">
-                                      {line}
+                                    <div key={idx} className="text-center font-extrabold text-stone-900 text-xs sm:text-[13px] tracking-wide mb-1 uppercase">
+                                      <strong>{line}</strong>
                                     </div>
                                   );
                                 }
@@ -907,32 +1128,53 @@ export default function ResumeOptimizer({ activeProject, onSaveApplication }: Re
                                   </div>
                                 );
                               } else if (line.startsWith('## ')) {
+                                currentSection = line.substring(3).trim().toUpperCase();
                                 return (
                                   <h2 key={idx} className="text-xs sm:text-[13px] font-bold text-stone-900 tracking-wider uppercase border-b-2 border-stone-800 pb-0.5 mt-5 mb-2.5 font-display text-left">
                                     {line.substring(3)}
                                   </h2>
                                 );
                               } else if (line.startsWith('### ')) {
+                                h3Count++;
                                 const h3Content = line.substring(4);
+                                const spacerHtml = h3Count > 1 ? <div key={`spacer-${idx}`} className="h-3 w-full" /> : null;
+                                
                                 if (h3Content.includes('|')) {
                                   const parts = h3Content.split('|');
                                   return (
-                                    <div key={idx} className="flex justify-between items-baseline mt-3.5 mb-1">
-                                      <span className="font-bold text-xs text-stone-900">{parts[0].trim()}</span>
-                                      <span className="text-[10px] text-stone-500 font-bold italic">{parts[1].trim()}</span>
-                                    </div>
+                                    <React.Fragment key={idx}>
+                                      {spacerHtml}
+                                      <div className="flex justify-between items-baseline mt-3.5 mb-1">
+                                        <span className="font-bold text-xs text-stone-900">{parts[0].trim()}</span>
+                                        <span className="text-[10px] text-stone-500 font-bold italic">{parts[1].trim()}</span>
+                                      </div>
+                                    </React.Fragment>
                                   );
                                 }
                                 return (
-                                  <h3 key={idx} className="text-xs font-bold text-stone-900 mt-3.5 mb-1">
-                                    {h3Content}
-                                  </h3>
+                                  <React.Fragment key={idx}>
+                                    {spacerHtml}
+                                    <h3 className="text-xs font-bold text-stone-900 mt-3.5 mb-1">
+                                      {h3Content}
+                                    </h3>
+                                  </React.Fragment>
                                 );
                               } else if (line.startsWith('- ') || line.startsWith('* ')) {
+                                const isCoreCompetency = currentSection.includes('COMPETENC') || currentSection.includes('KEAHLIAN') || currentSection.includes('KOMPETENSI') || currentSection.includes('SKILL');
+                                
+                                if (isCoreCompetency) {
+                                  return (
+                                    <p key={idx} className="text-[11px] text-stone-700 leading-relaxed text-left mb-1">
+                                      {renderInlineFormatting(line.substring(2))}
+                                    </p>
+                                  );
+                                }
+                                
                                 return (
-                                  <li key={idx} className="text-[11px] text-stone-700 ml-4 list-disc pl-1 leading-relaxed mb-1 text-justify">
-                                    {renderInlineFormatting(line.substring(2))}
-                                  </li>
+                                  <div key={idx} className="flex items-start text-[11px] text-stone-700 leading-relaxed mb-1 text-left">
+                                    <span className="flex-shrink-0 w-3 font-bold text-stone-900 select-none">•</span>
+                                    <span className="flex-1">{renderInlineFormatting(line.substring(2))}</span>
+                                  </div>
                                 );
                               } else if (line.trim() === '') {
                                 return null;
@@ -948,7 +1190,7 @@ export default function ResumeOptimizer({ activeProject, onSaveApplication }: Re
                                   );
                                 }
                                 return (
-                                  <p key={idx} className="text-[11px] text-stone-700 leading-relaxed text-justify mb-1">
+                                  <p key={idx} className="text-[11px] text-stone-700 leading-relaxed text-left mb-1">
                                     {renderInlineFormatting(itemText)}
                                   </p>
                                 );
@@ -958,7 +1200,9 @@ export default function ResumeOptimizer({ activeProject, onSaveApplication }: Re
                         </div>
                       </div>
                     </div>
-                  ) : (
+                  </div>
+
+                  {resumeViewMode === 'plain' && (
                     /* Plain Text View area */
                     <div className="relative">
                       <textarea

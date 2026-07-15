@@ -5,8 +5,69 @@ import {
   Search, SlidersHorizontal, Plus, Calendar, ExternalLink, Info, Trash2, 
   MapPin, CheckCircle, Clock, AlertTriangle, ArrowRight, X, Eye, Edit2, 
   Tag, Flag, HelpCircle, FileCheck, Globe, Download, Printer, FileText,
-  Clipboard, Check
+  Clipboard, Check, ShieldAlert
 } from 'lucide-react';
+
+const renderFormattedList = (text: string, type: 'rose' | 'teal') => {
+  if (!text) return null;
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  
+  return (
+    <div className="space-y-3 mt-2 text-left w-full font-sans">
+      {lines.map((line, idx) => {
+        // Check for numbered point like: "1. **Title**: Description" or "1. **Title** Description"
+        const numberedRegex = /^(\d+)\.\s*\*\*(.*?)\*\*[:\s]*(.*)$/;
+        const match = line.match(numberedRegex);
+        
+        if (match) {
+          const [_, num, title, description] = match;
+          return (
+            <div key={idx} className="flex gap-3 p-3.5 rounded-xl border border-stone-150/80 bg-stone-50/50 hover:bg-stone-50 transition-all w-full">
+              <span className={`flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold ${
+                type === 'rose' 
+                  ? 'bg-rose-50 text-rose-700 border border-rose-100' 
+                  : 'bg-teal-50 text-teal-700 border border-teal-100'
+              }`}>
+                {num}
+              </span>
+              <div className="space-y-0.5 flex-1 min-w-0">
+                <span className="font-extrabold text-stone-900 text-xs sm:text-[13px] block">
+                  {title}
+                </span>
+                <p className="text-stone-650 text-xs leading-relaxed">
+                  {description}
+                </p>
+              </div>
+            </div>
+          );
+        }
+        
+        // Bullet list option: "- **Title**: Description"
+        const bulletRegex = /^[-*]\s*\*\*(.*?)\*\*[:\s]*(.*)$/;
+        const bulletMatch = line.match(bulletRegex);
+        if (bulletMatch) {
+          const [_, title, description] = bulletMatch;
+          return (
+            <div key={idx} className="flex gap-2.5 items-start pl-1">
+              <span className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${type === 'rose' ? 'bg-rose-500' : 'bg-teal-500'}`} />
+              <div className="text-xs">
+                <strong className="font-extrabold text-stone-900">{title}</strong>: {description}
+              </div>
+            </div>
+          );
+        }
+
+        // Plain formatting fallback with bold word conversion
+        const parts = line.split('**');
+        return (
+          <p key={idx} className="text-stone-650 text-xs leading-relaxed pl-1 text-left">
+            {parts.map((part, index) => index % 2 === 1 ? <strong key={index} className="font-extrabold text-stone-900">{part}</strong> : part)}
+          </p>
+        );
+      })}
+    </div>
+  );
+};
 
 interface DashboardProps {
   projects: Project[];
@@ -170,16 +231,16 @@ export default function Dashboard({
     
     const wordContent = lines.map((line, idx) => {
       if (line.startsWith('# ')) {
-        return `<h1 style="text-align: center; font-size: 16pt; font-weight: bold; margin-bottom: 2px; text-transform: uppercase;">${line.substring(2)}</h1>`;
+        return `<h1 style="text-align: center; font-size: 16pt; font-weight: bold; margin-bottom: 2px; text-transform: uppercase; color: #111111; font-family: Arial, sans-serif;">${line.substring(2)}</h1>`;
       } else if (firstHeaderIdx !== -1 && idx < firstHeaderIdx) {
         if (line.trim() === '') return '';
         const isSecondLine = idx === 1 || (idx > 0 && lines[idx - 1].startsWith('# '));
         if (isSecondLine) {
-          return `<div style="text-align: center; font-size: 11pt; font-weight: bold; color: #333333; margin-bottom: 2px;">${line}</div>`;
+          return `<div style="text-align: center; font-size: 11pt; font-weight: bold; color: #111111; margin-bottom: 2px; text-transform: uppercase; font-family: Arial, sans-serif;"><b>${line}</b></div>`;
         }
-        return `<div style="text-align: center; font-size: 9.5pt; color: #555555; margin-bottom: 2px;">${line}</div>`;
+        return `<div style="text-align: center; font-size: 9.5pt; color: #555555; margin-bottom: 2px; font-family: Arial, sans-serif;">${line}</div>`;
       } else if (line.startsWith('## ')) {
-        return `<h2 style="font-size: 11pt; border-bottom: 2px solid #111111; margin-top: 14px; margin-bottom: 6px; padding-bottom: 2px; font-weight: bold; text-transform: uppercase; text-align: left;">${line.substring(3)}</h2>`;
+        return `<h2 style="font-size: 11pt; border: none; border-bottom: solid #111111 1.5pt; padding: 0in 0in 2pt 0in; margin-top: 16pt; margin-bottom: 6pt; font-weight: bold; text-transform: uppercase; text-align: left; color: #111111; font-family: Arial, sans-serif;">${line.substring(3)}</h2>`;
       } else if (line.startsWith('### ')) {
         const h3Content = line.substring(4);
         if (h3Content.includes('|')) {
@@ -188,17 +249,24 @@ export default function Dashboard({
             <table border="0" cellspacing="0" cellpadding="0" style="width:100%; margin-top:6px; margin-bottom:2px;">
               <tr>
                 <td align="left" style="font-weight:bold; font-size:10pt; color:#111111; font-family: Arial, sans-serif;">${parts[0].trim()}</td>
-                <td align="right" style="font-size:9pt; color:#666666; font-style:italic; font-family: Arial, sans-serif;">${parts[1].trim()}</td>
+                <td align="right" style="font-size:9pt; color:#555555; font-style:italic; font-family: Arial, sans-serif;">${parts[1].trim()}</td>
               </tr>
             </table>
           `;
         }
-        return `<h3 style="font-size: 10pt; margin-top: 8px; margin-bottom: 2px; font-weight: bold;">${h3Content}</h3>`;
+        return `<h3 style="font-size: 10pt; margin-top: 8px; margin-bottom: 2px; font-weight: bold; color: #111111; font-family: Arial, sans-serif;">${h3Content}</h3>`;
       } else if (line.startsWith('- ') || line.startsWith('* ')) {
         let itemText = line.substring(2);
         const parts = itemText.split('**');
         itemText = parts.map((part, index) => index % 2 === 1 ? `<b>${part}</b>` : part).join('');
-        return `<li style="margin-bottom: 2.5px; font-size: 9.5pt; text-align: justify;">${itemText}</li>`;
+        return `
+          <table border="0" cellspacing="0" cellpadding="0" style="width:100%; margin-top:0px; margin-bottom:4px;">
+            <tr>
+              <td valign="top" style="width: 12pt; font-size: 9.5pt; font-weight: bold; color: #111111; font-family: Arial, sans-serif; padding-top: 1px;">•</td>
+              <td valign="top" align="left" style="font-size: 9.5pt; color: #333333; font-family: Arial, sans-serif; line-height: 1.35; text-align: left;">${itemText}</td>
+            </tr>
+          </table>
+        `;
       } else if (line.trim() === '') {
         return '';
       } else {
@@ -208,15 +276,15 @@ export default function Dashboard({
           return `
             <table border="0" cellspacing="0" cellpadding="0" style="width:100%; margin-bottom:4px;">
               <tr>
-                <td align="left" style="font-size:9.5pt; color:#444444; font-family: Arial, sans-serif;">${parts[0].trim()}</td>
-                <td align="right" style="font-size:9.5pt; color:#444444; font-family: Arial, sans-serif;">${parts[1].trim()}</td>
+                <td align="left" style="font-size:9.5pt; color:#444444; font-family: Arial, sans-serif; font-weight: bold;">${parts[0].trim()}</td>
+                <td align="right" style="font-size:9.5pt; color:#444444; font-family: Arial, sans-serif; font-weight: bold;">${parts[1].trim()}</td>
               </tr>
             </table>
           `;
         }
         const parts = itemText.split('**');
         itemText = parts.map((part, index) => index % 2 === 1 ? `<b>${part}</b>` : part).join('');
-        return `<p style="margin: 0 0 4px 0; font-size: 9.5pt; text-align: justify;">${itemText}</p>`;
+        return `<p style="margin: 0 0 4px 0; font-size: 9.5pt; text-align: left; font-family: Arial, sans-serif; color: #333333; line-height: 1.35;">${itemText}</p>`;
       }
     }).filter(html => html !== '').join('\n');
     
@@ -228,7 +296,7 @@ export default function Dashboard({
         <style>
           body { font-family: 'Arial', sans-serif; line-height: 1.35; font-size: 10pt; color: #333333; margin: 1in; }
           h1, h2, h3, p, div, li { font-family: 'Arial', sans-serif; }
-          p { margin: 0 0 4px 0; font-size: 9.5pt; text-align: justify; }
+          p { margin: 0 0 4px 0; font-size: 9.5pt; text-align: left; }
           ul { margin: 0 0 6px 18px; }
           li { margin-bottom: 2px; font-size: 9.5pt; }
         </style>
@@ -299,7 +367,7 @@ export default function Dashboard({
         let itemText = line.substring(2);
         const parts = itemText.split('**');
         itemText = parts.map((part, index) => index % 2 === 1 ? `<strong style="font-weight: bold; color: #111;">${part}</strong>` : part).join('');
-        return `<li style="margin-bottom: 3.5px; line-height: 1.35; font-size: 9.5px; color: #333; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; text-align: justify; list-style-type: disc; margin-left: 15px;">${itemText}</li>`;
+        return `<li style="margin-bottom: 3.5px; line-height: 1.35; font-size: 9.5px; color: #333; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; text-align: left; list-style-type: disc; margin-left: 15px;">${itemText}</li>`;
       } else if (line.trim() === '') {
         return '';
       } else {
@@ -315,7 +383,7 @@ export default function Dashboard({
         }
         const parts = itemText.split('**');
         itemText = parts.map((part, index) => index % 2 === 1 ? `<strong style="font-weight: bold; color: #111;">${part}</strong>` : part).join('');
-        return `<p style="margin: 0 0 5px 0; font-size: 9.5px; line-height: 1.4; text-align: justify; color: #333; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">${itemText}</p>`;
+        return `<p style="margin: 0 0 5px 0; font-size: 9.5px; line-height: 1.4; text-align: left; color: #333; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">${itemText}</p>`;
       }
     }).filter(html => html !== '').join('\n');
     
@@ -1091,11 +1159,12 @@ export default function Dashboard({
                   </div>
 
                   {selectedAppForDetails.gapAnalysis && (
-                    <div className="space-y-1.5">
-                      <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest font-mono block">Kesenjangan Kualifikasi (Gaps)</span>
-                      <p className="text-stone-600 text-xs bg-stone-50 p-3.5 rounded-xl leading-relaxed whitespace-pre-wrap border border-stone-150 font-mono">
-                        {selectedAppForDetails.gapAnalysis}
-                      </p>
+                    <div className="bg-white p-5 rounded-2xl border border-stone-200/60 bento-shadow space-y-2 relative overflow-hidden flex flex-col">
+                      <h4 className="text-[10px] font-bold text-rose-700 uppercase tracking-widest font-mono flex items-center gap-1.5">
+                        <ShieldAlert className="w-4 h-4 text-rose-650" />
+                        Analisis Celah (Gap Analysis)
+                      </h4>
+                      {renderFormattedList(selectedAppForDetails.gapAnalysis, 'rose')}
                     </div>
                   )}
 
@@ -1250,7 +1319,7 @@ export default function Dashboard({
                                     );
                                   } else if (line.startsWith('- ') || line.startsWith('* ')) {
                                     return (
-                                      <li key={idx} className="text-[10px] text-stone-700 ml-4 list-disc pl-1 leading-relaxed mb-1 text-justify">
+                                      <li key={idx} className="text-[10px] text-stone-700 ml-4 list-disc pl-1 leading-relaxed mb-1 text-left">
                                         {renderInlineFormatting(line.substring(2))}
                                       </li>
                                     );
@@ -1268,7 +1337,7 @@ export default function Dashboard({
                                       );
                                     }
                                     return (
-                                      <p key={idx} className="text-[10px] text-stone-700 leading-relaxed text-justify mb-1">
+                                      <p key={idx} className="text-[10px] text-stone-700 leading-relaxed text-left mb-1">
                                         {renderInlineFormatting(itemText)}
                                       </p>
                                     );

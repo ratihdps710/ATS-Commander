@@ -50,3 +50,31 @@ body {
   color: #44403C;
 }
 
+/* Styling khusus untuk cetak PDF/A4 */
+@media print {
+  /* Sembunyikan semua elemen default halaman */
+  body > *:not(#print-section) {
+    display: none !important;
+  }
+  
+  /* Tampilkan hanya kontainer cetak */
+  #print-section {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Reset margin halaman browser */
+  @page {
+    size: A4;
+    margin: 15mm;
+  }
+}
+
+
